@@ -1,0 +1,37 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: 
+  Cloudformation template for creating IAM role in member account(s) for rds extended support cost estimator scripts.
+
+Parameters:
+  ManagementAccountId:
+    Description: Management Account Id
+    Type: String
+    AllowedPattern: "^[0-9]{12}$"
+    ConstraintDescription: "AWS Account ID must be a 12 digit number."
+
+Resources:
+  RDSExtendedSupportCostEstimatorRoleTemplate:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub ${ManagementAccountId}
+            Action: sts:AssumeRole
+      Description: IAM role in member account for rds extended support cost estimator scripts
+      Policies:
+        - PolicyName: RDSExtendedSupportCostEstimatorPolicy
+          PolicyDocument:
+            Statement:
+              - Action:
+                  - rds:DescribeDBEngineVersions
+                  - rds:DescribeDBInstances
+                  - rds:DescribeDBClusters
+                Effect: Allow
+                Resource: '*'
+            Version: "2012-10-17"
+      RoleName: RDSExtendedSupportCostEstimatorRole
