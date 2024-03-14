@@ -39,4 +39,4 @@ jobs:
           pip install bandit
       - name: bandit check
         run: |
-          bandit -r scripts/find_rds_extended_support_instances.py --level high
+          bandit -r scripts/find_rds_extended_support_instances.py --level HIGH
