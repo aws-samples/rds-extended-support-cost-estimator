@@ -1,0 +1,38 @@
+name: cfn-github-actions
+on:
+  pull_request:
+    branches:
+    - main
+  workflow_dispatch:
+      inputs:
+        name:
+          description: "test"
+          default: "test"
+jobs:
+  check-cfn:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Git clone the repository
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install CFN tools
+        run: |
+          gem install cfn-nag
+      - name: CFN Nag scan
+        run: |
+          cfn_nag_scan --input-path  cfn_template/rds_extended_support_cost_estimator_role.yaml
+      - name: Install cfn-lint
+        run: |
+          pip install cfn-lint
+      - name: CFN Lint
+        run: |
+          cfn-lint cfn_template/rds_extended_support_cost_estimator_role.yaml
+      - name: Install bandit
+        run: |
+          pip install bandit
+      - name: bandit check
+        run: |
+          bandit -r scripts/find_rds_extended_support_instances.py --confidence-level high
