@@ -70,7 +70,7 @@ These are the minimum permissions needed to create and execute the cloudformatio
 
 2. Navigate into the project
     ```
-    cd rds_extended_support_cost_estimator
+    cd rds-extended-support-cost-estimator
     ```
 
 ## Step 2: Create the CloudFormation StackSets
@@ -224,6 +224,28 @@ python find_rds_extended_support_instances.py --all --regions-file /path/to/regi
 ```
 
 After you run the script, it creates a CSV file in the <pwd>/output/rds_extended_support_instances_<*Timestamp*> format in the `output` directory.
+
+## Output
+The script creates a folder called `output/` in the same directory where the script runs from on first run. Subsequently, it uses the `output/` folder to save the results.
+
+The final output of the script is a csv called `./output/rds_extended_support_instances-<timestamp>.csv` in the same directory where the script is run from. The headers of the csv are: 
+```
+DBInstanceIdentifier : DB Instance name or identifier
+DBInstanceClass      : DB Instance Class, eg `db.t2.micro`
+Engine               : DB Engine, eg `postgres`
+EngineVersion        : DB Engine Version, eg `11.19`
+DBInstanceStatus     : DB Instance Status, eg `available`
+MultiAZ              : Indicates if this is a Multi-AZ instance
+BBInstanceArn        : The RDS ARN for the DB Instance
+AccountId            : The AWS account ID
+Region               : The Region in which the DB instance is in, eg `us-east-1`
+RegionName           : The full AWS region name, eg `US East (N. Virginia)`
+vCPUs per instance   : The number of vCPUs used by the DB Isstance class
+Total vCPUs (if MultiAZ) : The total number of vCPUs, if Multi-AZ is enabled.
+Year 1 Price         : The yearly price for RDS Extended Support for Year 1
+Year 2 Price         : The yearly price for RDS Extended Support for Year 2
+Year 3 Price         : The yearly price for RDS Extended Support for Year 3
+```
 
 
 ## Cleanup
