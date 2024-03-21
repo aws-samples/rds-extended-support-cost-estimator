@@ -236,11 +236,11 @@ Engine               : DB Engine, eg `postgres`
 EngineVersion        : DB Engine Version, eg `11.19`
 DBInstanceStatus     : DB Instance Status, eg `available`
 MultiAZ              : Indicates if this is a Multi-AZ instance
-BBInstanceArn        : The RDS ARN for the DB Instance
+DBInstanceArn        : The RDS ARN for the DB Instance
 AccountId            : The AWS account ID
 Region               : The Region in which the DB instance is in, eg `us-east-1`
 RegionName           : The full AWS region name, eg `US East (N. Virginia)`
-vCPUs per instance   : The number of vCPUs used by the DB Isstance class
+vCPUs per instance   : The number of vCPUs used by the DB Instance class
 Total vCPUs (if MultiAZ) : The total number of vCPUs, if Multi-AZ is enabled.
 Year 1 Price         : The yearly price for RDS Extended Support for Year 1
 Year 2 Price         : The yearly price for RDS Extended Support for Year 2
