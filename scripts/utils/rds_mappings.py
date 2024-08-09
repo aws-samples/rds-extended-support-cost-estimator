@@ -1,6 +1,8 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
+import boto3
+import json
 import requests
 from bs4 import BeautifulSoup
 from utils.log import get_logger
@@ -119,17 +121,20 @@ def get_rds_instance_mapping():
     LOGGER.debug(f'Mappings section: {mappings_section}')
 
     mappings_section_tables = mappings_section.find_all_next("table")
-    
+    LOGGER.debug("mappings_section_tables: {}".format(mappings_section_tables))
+
     #table = soup.find("table", {"id": "w1178aab5c37c39c17"})
-    table = mappings_section_tables[0]
-    rows = table.find_all("tr")
+    
     db_map = {}
-    for row in rows:
-        cols = row.find_all("td")
-        if len(cols)>1:
-            db_class = (cols[0].text.strip()).strip('*')
-            default_vcpus = cols[1].text.strip()
-            db_map[db_class] = default_vcpus
+
+    for table in mappings_section_tables:
+        rows = table.find_all("tr")
+        for row in rows:
+            cols = row.find_all("td")
+            if len(cols)>1:
+                db_class = (cols[0].text.strip()).strip('*')
+                default_vcpus = cols[1].text.strip()
+                db_map[db_class] = default_vcpus
 
     LOGGER.debug(f'DB Instance Mapping: {db_map}')
     return db_map
@@ -152,55 +157,84 @@ def get_rds_extended_support_pricing(db_engine):
         else:
             LOGGER.debug("No cached prices found for RDS Extended Support, getting prices from AWS Pricing page")
     
-    urls = {
-        'mysql': 'https://aws.amazon.com/rds/mysql/pricing/',
-        'postgres': 'https://aws.amazon.com/rds/postgresql/pricing/',
-        'aurora': 'https://aws.amazon.com/rds/aurora/pricing'
+    api_filters = {
+        'mysql': {'databaseEngine': 'MySQL', 'engineMajorVersion': '5.7'},
+        'postgres': {'databaseEngine': 'PostgreSQL', 'engineMajorVersion': '11'},
+        'aurora': {'databaseEngine': 'Aurora PostgreSQL', 'engineMajorVersion': '11'}
     }
 
-    def get_price_map(table):
-        rows = table.find_all("tr")[1:]
+    # Filter for AWS Price List Query API
+    FILTER='[{{"Type": "TERM_MATCH", "Field": "databaseEngine", "Value": "{e}"}},'\
+            '{{"Type": "TERM_MATCH", "Field": "engineMajorVersion", "Value": "{v}"}},'\
+            '{{"Type": "TERM_MATCH","Field": "extendedSupportPricingYear","Value": "{y}"}}]'
+
+    def get_price_map(db_engine):
         price_map = {}
-        for row in rows:
-            cols = row.find_all("td")
-            #print(cols)
-            region = cols[0].text.strip()
-            yr_1_2_price = float((cols[1].text.strip()).strip('$'))
-            yr_3_price = float((cols[2].text.strip()).strip('$'))
-            price_map[region] = {
-                "yr_1_2_price": yr_1_2_price,
-                "yr_3_price": yr_3_price
-            }
+        extended_support_pricing = boto3.client('pricing', region_name='us-east-1')
+
+        engine = api_filters[db_engine]['databaseEngine']
+        major_version = api_filters[db_engine]['engineMajorVersion']
+        year_options = {
+            'yr_1_2_price': 'Year 1, Year 2', 
+            'yr_3_price': 'Year 3'
+        }
+
+        for year_code, year_string in year_options.items():
+            f = FILTER.format(e=engine, v=major_version, y=year_string)
+            LOGGER.debug(f'AWS Pricing API filter: {f} for engine {db_engine}')
+
+            response = extended_support_pricing.get_products(
+                            ServiceCode='AmazonRDS',
+                            FormatVersion='aws_v1',
+                            Filters=json.loads(f) 
+                        )
+            if 'PriceList' in response and len(response['PriceList']) > 0:
+                price_list = response['PriceList']
+            else:
+                LOGGER.error("Invalid Arguments for databaseEngine: {}, engineMajorVersion: {} or ExtendedSupportPricingYear: {}".format(engine, major_version, year_string))
+                raise Exception('Invalid Arguments for DB Engine, EngineVersion or ExtendedSupportPricingYear')
+        
+            LOGGER.debug(f'extended support pricing response: {price_list}')
+            for obj in price_list:
+                sku = json.loads(obj)
+                region = sku['product']['attributes']['location']
+                if region not in price_map:
+                    price_map[region] = {}
+                ''' Since the pricing API returns a dict with dynamically generated keys which are not pre-known, 
+                in order to access the 'pricePerUnit' child attributes, we need to convert the dict into list to 
+                access the dict's key elements at known positions in the list.
+                For eg, the following is the returned response from pricing API: 
+                    "terms": {
+                        "OnDemand": {
+                            "YZBJ7XT2D98GGDZH.99YE2YK9UR": {                    <<<--- dynamic not pre-known key
+                                "priceDimensions": {
+                                    "YZBJ7XT2D98GGDZH.99YE2YK9UR.Q7UJUT2CE6": { <<<--- dynamic, not pre-known key
+                                        "pricePerUnit": {
+                                            "USD": "1.9480000000"
+                                        }
+                                    }
+                                },
+                            }
+                        }
+                    }
+                then id1 in below code points to the dict key `YZBJ7XT2D98GGDZH.99YE2YK9UR` and id2 points to the dict key `YZBJ7XT2D98GGDZH.99YE2YK9UR.Q7UJUT2CE6`
+                '''
+                od = sku['terms']['OnDemand']
+                id1 = list(od)[0]
+                id2 = list(od[id1]['priceDimensions'])[0]
+                if 'USD' in od[id1]['priceDimensions'][id2]['pricePerUnit']:
+                    extended_support_price = od[id1]['priceDimensions'][id2]['pricePerUnit']['USD']
+                else:
+                    continue
+
+                price_map[region].update({year_code: float(extended_support_price)})
+            
         return price_map
 
-    LOGGER.info(f'Extracting RDS extended support priciing for engine {db_engine} from {urls[db_engine]}')
-    try:
-        response = requests.get(urls[db_engine], timeout=10)    # 10 seconds
-        response.raise_for_status()
-    except Exception as e:
-        LOGGER.error(f'Failed to get a http response from {urls[db_engine]} to get RDS extended support pricing, script exiting...')
-        raise
-    soup = BeautifulSoup(response.content, "html.parser")
-
-    extended_support_section = soup.find("h2", {"id": "Amazon_RDS_Extended_Support_costs"})
-    LOGGER.debug(f'Extended support section: {extended_support_section}')
-
-    extended_support_section_tables = extended_support_section.find_all_next("table")
-
-    if db_engine == 'aurora':
-        aurora_provisioned = extended_support_section_tables[0]
-        aurora_serverless_v2 = extended_support_section_tables[1]
-
-        aurora_provisioned_price_map = get_price_map(aurora_provisioned)
-        aurora_serverless_v2_price_map = get_price_map(aurora_serverless_v2)
-        LOGGER.debug(f'aurora provisioned price map: {aurora_provisioned_price_map}')
-        LOGGER.debug(f'aurora serverless v2 price map: {aurora_serverless_v2_price_map}')
-        return aurora_provisioned_price_map, aurora_serverless_v2_price_map
-    else:
-        db_engine_provisioned = extended_support_section_tables[0]
-        db_engine_price_map = get_price_map(db_engine_provisioned)
-        LOGGER.debug(f'db engine price map: {db_engine_price_map}')
-        return db_engine_price_map, "N/A"
+    LOGGER.info(f'Extracting RDS extended support pricing for engine {db_engine} using Pricing API')
+    db_engine_price_map = get_price_map(db_engine)
+    LOGGER.debug(f'db engine price map: {db_engine_price_map}')
+    return db_engine_price_map, "N/A"
 
 
 def is_extended_support_eligible(rds_instance):

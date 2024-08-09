@@ -32,6 +32,10 @@ These scripts provide the following benefits:
 * Time-saving automation: Eliminate manual effort by automating the process of listing RDS instances, saving valuable time for your team. Run the script for a single account, a list of accounts or for the entire organization.
 * Proactive management: Stay ahead of extended support deadlines by proactively identifying instances requiring attention, minimizing potential disruptions.
 
+
+## Changelog
+2024-08-10: Fixed issue #1. This involves a minor rewrite of the logic to extract the Extended Support pricing. Instead of scrapping the AWS pricing page, which is now broken due to the new way the html code is rendered, now the Extended Supprt price is obtained using the official [AWS Price List Query API](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html). Read comments in issue #1 for more details.
+
 ## Prerequisites
 
 1. Download and install [Python 3](https://www.python.org/downloads/).
@@ -58,8 +62,10 @@ These scripts provide the following benefits:
 "rds:DescribeDBEngineVersions",
 "rds:DescribeDBInstances",
 "rds:DescribeDBClusters"
+
+"pricing:GetProducts",
 ```
-These are the minimum permissions needed to create and execute the cloudformation stack/stack-set across the management & all linked accounts in your AWS Organizations. In addition, this also includes the permissions needed to read RDS instance details used by the script. You will be using this IAM principal to configure AWS credentials before running the scripts.
+These are the minimum permissions needed to create and execute the cloudformation stack/stack-set across the management & all linked accounts in your AWS Organizations. In addition, this also includes the permissions needed to read RDS instance details used by the script as well as using the Price List API to get the Extended Support price for various year-terms. You will be using this IAM principal to configure AWS credentials before running the scripts.
 
 ## Step 1: Clone the repo
 
