@@ -197,7 +197,7 @@ def get_rds_extended_support_pricing(db_engine):
             LOGGER.debug(f'extended support pricing response: {price_list}')
             for obj in price_list:
                 sku = json.loads(obj)
-                region = sku['product']['attributes']['location']
+                region = sku['product']['attributes']['regionCode']
                 if region not in price_map:
                     price_map[region] = {}
                 ''' Since the pricing API returns a dict with dynamically generated keys which are not pre-known, 

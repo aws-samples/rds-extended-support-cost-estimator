@@ -161,12 +161,12 @@ def save_to_csv(rds_extended_support_instances):
     
     def get_y1_price(row):
         (provisioned_price_map, _) = get_rds_extended_support_pricing(row['Engine'].split('-')[0])
-        region_name = REGIONS[row['Region']]
+        region_name = row['Region']
         yr_1_2_price = provisioned_price_map[region_name]['yr_1_2_price']
         return row['Total vCPUs (if MultiAZ)'] * yr_1_2_price * 24 * 365 # extended support price is per vCPU-hour
     def get_y3_price(row):
         (provisioned_price_map, _) = get_rds_extended_support_pricing(row['Engine'].split('-')[0])
-        region_name = REGIONS[row['Region']]
+        region_name = row['Region']
         '''
         Per the Amazon RDS Aurora pricing page (https://aws.amazon.com/rds/aurora/pricing/#Amazon_RDS_Extended_Support_costs)
         Amazon RDS Extended Support year 3 pricing is only available for Amazon Aurora PostgreSQL-Compatible Edition.
