@@ -108,6 +108,7 @@ For eg: db.m6i.large = 2 vCPUs
 """
 def get_rds_instance_mapping():
     LOGGER.debug("Extracting the vCPU to RDS Instance size mapping")
+
     url = "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.Summary.html"
     
     ''' TODO
@@ -154,6 +155,11 @@ def get_rds_instance_mapping():
                 db_map[db_class] = default_vcpus
 
     LOGGER.debug(f'DB Instance Mapping: {db_map}')
+    
+    LOGGER.debug(f'Saving the DB Instance Mapping to rds_instance_mapping.json')
+    with open('rds_instance_mapping.json', 'w') as f:
+        json.dump(db_map, f)
+
     return db_map
 
 def get_rds_extended_support_pricing(db_engine):
@@ -161,19 +167,25 @@ def get_rds_extended_support_pricing(db_engine):
     global aurora_serverless_v2_price_map
     global db_engine_price_map
 
-    if db_engine == 'aurora':
-        if len(aurora_provisioned_price_map) >0:
-            LOGGER.debug("Returning cached prices for Aurora Extended Support")
-            return aurora_provisioned_price_map, aurora_serverless_v2_price_map
-        else:
-            LOGGER.debug("No cached prices found for Aurora Extended Support, getting prices from AWS Pricing page")
-    else:
-        if len(db_engine_price_map) > 0:
-            LOGGER.debug("Returning cached prices for RDS Extended Support")
-            return db_engine_price_map, "N/A"
-        else:
-            LOGGER.debug("No cached prices found for RDS Extended Support, getting prices from AWS Pricing page")
+    # if db_engine == 'aurora':
+    #     if len(aurora_provisioned_price_map) >0:
+    #         LOGGER.debug("Returning cached prices for Aurora Extended Support")
+    #         return aurora_provisioned_price_map, aurora_serverless_v2_price_map
+    #     else:
+    #         LOGGER.debug("No cached prices found for Aurora Extended Support, getting prices from AWS Pricing page")
+    # else:
+    #     if len(db_engine_price_map) > 0:
+    #         LOGGER.debug("Returning cached prices for RDS Extended Support")
+    #         return db_engine_price_map, "N/A"
+    #     else:
+    #         LOGGER.debug("No cached prices found for RDS Extended Support, getting prices from AWS Pricing page")
     
+    if len(db_engine_price_map) > 0:
+        LOGGER.debug("Returning cached prices for RDS Extended Support")
+        return db_engine_price_map, "N/A"
+    else:
+        LOGGER.debug("No cached prices found for RDS Extended Support, getting prices from AWS Pricing page")
+
     api_filters = {
         'mysql': {'databaseEngine': 'MySQL', 'engineMajorVersion': '5.7'},
         'postgres': {'databaseEngine': 'PostgreSQL', 'engineMajorVersion': '11'},

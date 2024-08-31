@@ -52,7 +52,8 @@ LOGGER = get_logger(__name__)
     3. Cache for storing processed account IDs  
 '''
 REGIONS = {}
-DB_INSTANCE_MAPPING = get_rds_instance_mapping()
+DB_INSTANCE_MAPPING = {}
+
 processed_accounts = []
 try:
     # Try to load processed accounts from cache file
@@ -117,11 +118,12 @@ def get_rds_instances(rds_client):
     return rds_instances
 
 def get_rds_extended_support_instances(account_id, caller_account):
+    global DB_INSTANCE_MAPPING
     keys = ['DBInstanceIdentifier', 'DBInstanceClass', 'Engine', 'EngineVersion', 'DBInstanceStatus', 'MultiAZ', 'DBInstanceArn']
     rds_extended_support_instances = []
     
     #### OVERRIDE - FOR TESTING ###
-    #REGIONS = {'us-east-1':'US East (N. Virginia)', 'us-west-2': 'US West (Oregon)'}
+    #REGIONS = {'us-east-1':'US East (N. Virginia)', 'us-west-2': 'US West (Oregon)', 'eu-west-1': 'Europe (Ireland)'}
     #### OVERRIDE - FOR TESTING ###
 
     #TODO: Handle Aurora Serverless v2 instances 
@@ -139,6 +141,12 @@ def get_rds_extended_support_instances(account_id, caller_account):
                 shortlist_instance['AccountId'] = account_id
                 shortlist_instance['Region'] = region
                 shortlist_instance['RegionName'] = REGIONS[region]
+                # Handle the case where an instance type is not found in rds_instance_mapping.json (perhaps its a new family/size added)
+                # We will just regenrate the entire mapping by scrapping the AWS Documentation HTML page. 
+                if shortlist_instance['DBInstanceClass'] not in DB_INSTANCE_MAPPING:
+                    LOGGER.error(f'Instance type {shortlist_instance["DBInstanceClass"]} not found in rds_instance_mapping.json. Regenerating json file from AWS documentation')
+                    DB_INSTANCE_MAPPING = get_rds_instance_mapping()
+                    LOGGER.info(f'Updated DB Instance Mapping: {DB_INSTANCE_MAPPING}')
                 shortlist_instance['vCPUs per instance'] = DB_INSTANCE_MAPPING[shortlist_instance['DBInstanceClass']]
 
                 rds_extended_support_instances.append(shortlist_instance)
@@ -201,6 +209,7 @@ def save_to_csv(rds_extended_support_instances):
 
 def main():
     global REGIONS
+    global DB_INSTANCE_MAPPING
     args = parse_args()
     sts_client = boto3.client('sts')
     org_client = boto3.client('organizations')
@@ -210,6 +219,16 @@ def main():
     is_china = is_china_region(sts_client)
     validate_if_being_run_by_payer_account(org_client, caller_account)
     LOGGER.info(f'Caller account: {caller_account}')
+
+    # Check if the mapping file exists, if it does, read from it
+    try:
+        # Try to load rds instane mapping json file
+        with open('rds_instance_mapping.json') as f:
+            DB_INSTANCE_MAPPING = json.load(f)
+            LOGGER.debug(f'Read RDS db instance mapping from file rds_instance_mapping.json')
+    except:
+        LOGGER.debug("No RDS db instance mapping file found, getting mapping from AWS Pricing page")
+        DB_INSTANCE_MAPPING = get_rds_instance_mapping()
 
     REGIONS = get_rds_regions(args.regions_file)
     if args.generate_regions_file:
