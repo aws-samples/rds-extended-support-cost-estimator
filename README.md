@@ -34,7 +34,10 @@ These scripts provide the following benefits:
 
 
 ## Changelog
-2024-08-10: Fixed issue #1. This involves a minor rewrite of the logic to extract the Extended Support pricing. Instead of scrapping the AWS pricing page, which is now broken due to the new way the html code is rendered, now the Extended Supprt price is obtained using the official [AWS Price List Query API](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html). Read comments in issue #1 for more details.
+2024-08-31: Fixed issue #5. Instead of relying on HTML scrapping of AWS documentation for creating an rds instance to vCPU mapping, now we have a hard coded json file checked-in where the script reads these mappings from. Since the instance to vCPU mappings never change, this prevents unnecessary API calls and/or updating code to properly parse HTML. However, in case a new instance family/class is added in future, the code will try to read the AWS documentation again, and update the mappings json file. 
+
+2024-08-10: Fixed issue #3. This involves a minor rewrite of the logic to extract the Extended Support pricing. Instead of scrapping the AWS pricing page, which is now broken due to the new way the html code is rendered, now the Extended Supprt price is obtained using the official [AWS Price List Query API](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html). Read comments in issue #3 for more details.
+
 
 ## Prerequisites
 
