@@ -108,7 +108,25 @@ For eg: db.m6i.large = 2 vCPUs
 """
 def get_rds_instance_mapping():
     LOGGER.debug("Extracting the vCPU to RDS Instance size mapping")
-    url = "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.html"
+    url = "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.Summary.html"
+    
+    ''' TODO
+    Fix the logic to get rds instance mapping in a more reliable way. The HTML of the AWS Documentation that was being scraped
+    previously has changed, causing the script to fail. There are 2 approaches to repalce the current HTML scrapping logic: 
+    1/  either use a hard coded file with list of rds instances and vCPU mapping, as these mappings are static and do not change. 
+        Will need to handle the condition of new instance types/family/size getting added in future, for which see #2 below.
+    2/ Use the AWS Pricing API to retrive the vCPU details for an instance, and build a cache locally to avoid calling the API repeatedly.
+        This can also be used in conjunction with #1 above. In case an instance type is not found in the hardcoded file, then call
+        the pricing API and update the mappings file and write back for future usage. 
+        AWS Pricing API CLI command example: 
+        `aws pricing get-products --service-code AmazonRDS --region us-east-1 --filters Type=TERM_MATCH,Field=UsageType,Value=USW2-InstanceUsage:db.m5.large Type=TERM_MATCH,Field=Operation,Value=CreateDBInstance:0002`
+        The filters needed are: 
+        # Filter for AWS Price List Query API, for eg to get the vCPUs for db.m5.large instance type:
+        FILTER='[{{"Type": "TERM_MATCH", "Field": "UsageType", "Value": "InstanceUsage:db.m5.large"}},'\
+                '{{"Type": "TERM_MATCH","Field": "Operation","Value": "CreateDBInstance:0002"}}]'
+
+    '''
+
     try:    
         response = requests.get(url, timeout=10)    # 10 seconds
         response.raise_for_status()
@@ -117,14 +135,13 @@ def get_rds_instance_mapping():
         raise
     soup = BeautifulSoup(response.content, "html.parser")
 
-    mappings_section = soup.find("h2", {"id": "Concepts.DBInstanceClass.Summary"})
+    #mappings_section = soup.find("h2", {"id": "Concepts.DBInstanceClass.Summary"})
+    mappings_section = soup.find("div", {"id": "main-col-body"})
     LOGGER.debug(f'Mappings section: {mappings_section}')
 
     mappings_section_tables = mappings_section.find_all_next("table")
     LOGGER.debug("mappings_section_tables: {}".format(mappings_section_tables))
 
-    #table = soup.find("table", {"id": "w1178aab5c37c39c17"})
-    
     db_map = {}
 
     for table in mappings_section_tables:
