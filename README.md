@@ -8,9 +8,9 @@ These scripts can be used to help estimate the cost of RDS Extended Support for 
 
 These scripts should be run from the payer account of your organization to identify the RDS clusters in your organization that will be impacted by the extended support and the estimated additional cost for the following DB engines:
 
-* Amazon RDS for PostgreSQL - version 11
+* Amazon RDS for PostgreSQL - version 11, 12
 * Amazon RDS for MySQL - version 5.7
-* Amazon Aurora - versions mysql_aurora-2.11, mysql_aurora-2.12, postgres-aurora-11.9, postgres-aurora-11.21
+* Amazon Aurora - versions mysql_aurora-2.11, mysql_aurora-2.12, postgres-aurora-11.9, postgres-aurora-11.21, postgres-aurora-12.9, postgres-aurora-12.22
 
 
 Note:
@@ -249,6 +249,11 @@ DBInstanceArn        : The RDS ARN for the DB Instance
 AccountId            : The AWS account ID
 Region               : The Region in which the DB instance is in, eg `us-east-1`
 RegionName           : The full AWS region name, eg `US East (N. Virginia)`
+End of Support       : RDS end of standard support date
+Extended Support Start Date : RDS start of Extended Support date
+Extended Support Year 1 Pricing Start Date : RDS start of Extended Support year 1 pricing
+Extended Support Year 3 Pricing Start Date : RDS start of Extended Support year 3 pricing
+Extended Support End Date   : RDS end of Extended Support date
 vCPUs per instance   : The number of vCPUs used by the DB Instance class
 Total vCPUs (if MultiAZ) : The total number of vCPUs, if Multi-AZ is enabled.
 Year 1 Price         : The yearly price for RDS Extended Support for Year 1

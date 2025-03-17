@@ -16,19 +16,28 @@ AURORA_EXTENDED_SUPPORT_VERSION = {
             "aurora-major-version": "mysql-aurora-2",
             "community-eol-date": "10-31-2023",
             "rds-standard-eos-date": "10-31-2024",
-            "rds-extended-support-yr1-stat-date": "12-01-2024",
-            "rds-extended-support-yr3-stat-date": "N/A",
-            "rds-extended-eos-date": "02-28-2025",
+            "rds-extended-support-yr1-start-date": "12-01-2024",
+            "rds-extended-support-yr3-start-date": "N/A",
+            "rds-extended-eos-date": "02-28-2027",
             "minor-versions-eligible-extended-support": ["mysql_aurora-2.11", "mysql_aurora-2.12"]
         },
         "postgres-11": {
             "aurora-major-version": "postgres-aurora-3",
             "community-eol-date": "11-30-2023",
             "rds-standard-eos-date": "02-29-2024",
-            "rds-extended-support-yr1-stat-date": "04-01-2024",
-            "rds-extended-support-yr3-stat-date": "04-01-2026",
+            "rds-extended-support-yr1-start-date": "04-01-2024",
+            "rds-extended-support-yr3-start-date": "04-01-2026",
             "rds-extended-eos-date": "03-31-2027",
-            "minor-versions-eligible-extended-support": ["postgres-aurora-11.9", "postgres-aurora-11.21"]
+            "minor-versions-eligible-extended-support": ["postgres-aurora-11.9", "postgres-aurora-11.21"]    
+        },
+        "postgres-12": {
+            "aurora-major-version": "postgres-aurora-4",
+            "community-eol-date": "11-30-2024",
+            "rds-standard-eos-date": "02-28-2025",
+            "rds-extended-support-yr1-start-date": "03-01-2025",
+            "rds-extended-support-yr3-start-date": "03-01-2027",
+            "rds-extended-eos-date": "02-29-2028",
+            "minor-versions-eligible-extended-support": ["postgres-aurora-12.9", "postgres-aurora-12.22"]
     
         }
     }
@@ -37,22 +46,67 @@ RDS_EXTENDED_SUPPORT_VERSION = {
         "mysql-5.7":{
             "community-eol-date": "10-31-2023",
             "rds-standard-eos-date": "02-29-2024",
-            "rds-extended-support-yr1-stat-date": "03-01-2024",
-            "rds-extended-support-yr3-stat-date": "03-01-2026",
+            "rds-extended-support-yr1-start-date": "03-01-2024",
+            "rds-extended-support-yr3-start-date": "03-01-2026",
             "rds-extended-eos-date": "02-28-2027",
+        },
+        "mysql-8.0":{
+            "community-eol-date": "04-01-2026",
+            "rds-standard-eos-date": "07-31-2026",
+            "rds-extended-support-yr1-start-date": "08-01-2026",
+            "rds-extended-support-yr3-start-date": "08-01-2028",
+            "rds-extended-eos-date": "07-31-2027",
         },
         "postgres-11": {
             "community-eol-date": "11-09-2023",
             "rds-standard-eos-date": "02-29-2024",
-            "rds-extended-support-yr1-stat-date": "04-01-2024",
-            "rds-extended-support-yr3-stat-date": "04-01-2026",
+            "rds-extended-support-yr1-start-date": "04-01-2024",
+            "rds-extended-support-yr3-start-date": "04-01-2026",
             "rds-extended-eos-date": "03-31-2027",
+        },
+        "postgres-12": {
+            "community-eol-date": "11-14-2024",
+            "rds-standard-eos-date": "02-28-2025",
+            "rds-extended-support-yr1-start-date": "03-01-2025",
+            "rds-extended-support-yr3-start-date": "03-01-2027",
+            "rds-extended-eos-date": "02-29-2028",
         }
     }
 
 aurora_provisioned_price_map = {}
 aurora_serverless_v2_price_map = {}
 db_engine_price_map = {}
+
+# Get the various end of support dates and extended support dates for a given engine & engineVersion from the above AURORA_EXTENDED_SUPPORT_VERSION & RDS_EXTENDED_SUPPORT_VERSION
+def get_extended_support_dates(rds_instance):
+    engine = rds_instance['Engine']
+    engineVersion = rds_instance['EngineVersion']
+    
+    if "mysql" in engine:
+        lookup_version = "mysql-" + '.'.join(engineVersion.split('.')[:2]) 
+    else: 
+        lookup_version = "postgres-" + engineVersion.rsplit('.', 1)[0]
+        
+    if engine in ['aurora-mysql', 'aurora-postgresql']:    
+        if lookup_version in AURORA_EXTENDED_SUPPORT_VERSION:
+            return AURORA_EXTENDED_SUPPORT_VERSION[lookup_version]
+        else:
+            LOGGER.error(f'Unknown engineVersion {engineVersion} for engine {engine}')
+            print(f'===> Error: Unknown engineVersion {engineVersion} for engine {engine} - rds_instance: {rds_instance}')
+            return None
+        
+    elif engine in ['mysql', 'postgres']:
+        if lookup_version in RDS_EXTENDED_SUPPORT_VERSION:
+            return RDS_EXTENDED_SUPPORT_VERSION[lookup_version]
+        else:
+            LOGGER.error(f'Unknown engineVersion {engineVersion} for engine {engine}')
+            print(f'===> Error: Unknown engineVersion {engineVersion} for engine {engine} - rds_instance: {rds_instance}')
+            return None
+    else:
+        LOGGER.error(f'Unknown engine {engine}')
+        print(f'===> Error: Unknown engine {engine} - rds_instance: {rds_instance}')
+        return None
+
 
 def get_rds_regions(regions_file_path):
     LOGGER.debug("Extracting a list of AWS Regions for RDS")
@@ -271,13 +325,13 @@ def is_extended_support_eligible(rds_instance):
         if ("mysql_aurora.2.11" in rds_instance['EngineVersion']) or ("mysql_aurora.2.12" in rds_instance['EngineVersion']):
             return True
     
-    if rds_instance['Engine'] in ['aurora-postgresql'] and rds_instance['EngineVersion'] in ["11.9", "11.21"]:
+    if rds_instance['Engine'] in ['aurora-postgresql'] and rds_instance['EngineVersion'] in ["11.9", "11.21", "12.9", "12.22"]:
             return True
     
     if rds_instance['Engine'] in ['mysql'] and "5.7" in rds_instance['EngineVersion']:
         return True
     
-    if rds_instance['Engine'] in ['postgres'] and "11" in rds_instance['EngineVersion']:
+    if rds_instance['Engine'] in ['postgres'] and ("11" in rds_instance['EngineVersion'].split(".")[0] or "12" in rds_instance['EngineVersion'].split(".")[0]):
         return True
     
     return False

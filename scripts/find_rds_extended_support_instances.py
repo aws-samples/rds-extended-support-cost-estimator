@@ -41,6 +41,7 @@ from utils.rds_mappings import (
     is_extended_support_eligible,
     get_rds_instance_mapping,
     get_rds_extended_support_pricing,
+    get_extended_support_dates,
     get_rds_regions
 )
 
@@ -131,16 +132,26 @@ def get_rds_extended_support_instances(account_id, caller_account):
         LOGGER.info(f'Running for account {account_id} in region {region}')
         rds_client = get_rds_client(account_id, caller_account, region)
         rds_instances = get_rds_instances(rds_client)
+        LOGGER.debug(f'RDS Instances: {rds_instances}')
         LOGGER.info(f'Found {len(rds_instances)} RDS instances in account {account_id} in region {region}')
 
         for instance in rds_instances:
-            LOGGER.debug(f'==> Instance: {instance}')
+            LOGGER.debug(f'Account: {account_id} | Instance: {instance}')
             if is_extended_support_eligible(instance):
-                LOGGER.debug(f'Instance is eligible for extended support')
+                LOGGER.debug(f'Account: {account_id} | Extended Support Eligible Instance: {instance}')
                 shortlist_instance = {key: instance[key] for key in keys}
                 shortlist_instance['AccountId'] = account_id
                 shortlist_instance['Region'] = region
                 shortlist_instance['RegionName'] = REGIONS[region]
+
+                eos_dates = get_extended_support_dates(instance)
+                LOGGER.debug(f"Account: {account_id} | eos_dates: {eos_dates}")
+                shortlist_instance['End of Support'] = eos_dates['rds-standard-eos-date']
+                shortlist_instance['Extended Support Start Date'] = eos_dates['rds-extended-support-yr1-start-date']
+                shortlist_instance['Extended Support Year 1 Pricing Start Date'] = eos_dates['rds-extended-support-yr1-start-date']
+                shortlist_instance['Extended Support Year 3 Pricing Start Date'] = eos_dates['rds-extended-support-yr3-start-date']
+                shortlist_instance['Extended Support End Date'] = eos_dates['rds-extended-eos-date']
+
                 # Handle the case where an instance type is not found in rds_instance_mapping.json (perhaps its a new family/size added)
                 # We will just regenrate the entire mapping by scrapping the AWS Documentation HTML page. 
                 if shortlist_instance['DBInstanceClass'] not in DB_INSTANCE_MAPPING:
@@ -269,9 +280,10 @@ def main():
         LOGGER.info(f'Running in PAYER ACCOUNT mode for payer account: {caller_account}')
         account_pool = [caller_account]
 
+    LOGGER.info(f'Collecting RDS instances from Accounts: {account_pool}')
     LOGGER.info(f'Running in specific regions: {REGIONS}')
 
-    df = pd.DataFrame(columns=['DBInstanceIdentifier', 'DBInstanceClass', 'Engine', 'EngineVersion', 'DBInstanceStatus', 'MultiAZ', 'DBInstanceArn', 'AccountId', 'Region', 'RegionName', 'vCPUs per instance', 'Total vCPUs (if MultiAZ)', 'Year 1 Price', 'Year 2 Price', 'Year 3 Price' ])
+    df = pd.DataFrame(columns=['DBInstanceIdentifier', 'DBInstanceClass', 'Engine', 'EngineVersion', 'DBInstanceStatus', 'MultiAZ', 'DBInstanceArn', 'AccountId', 'Region', 'RegionName', 'End of Support', 'Extended Support Start Date', 'Extended Support Year 1 Pricing Start Date',  'Extended Support Year 3 Pricing Start Date', 'Extended Support End Date', 'vCPUs per instance', 'Total vCPUs (if MultiAZ)', 'Year 1 Price', 'Year 2 Price', 'Year 3 Price' ])
     df.to_csv(outfile, index=False)
     
     with ThreadPoolExecutor(max_workers=100) as executor:
